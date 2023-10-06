@@ -11,9 +11,7 @@ def get_cuda_ver(nvrtc):
         return '111'
     if '11' in nvrtc:
         return '11x'
-    if '12' in nvrtc:
-        return '12x'
-    return None
+    return '12x' if '12' in nvrtc else None
 
 try:
     import cupy

@@ -49,7 +49,7 @@ MODEL_TYPE = pathlib.Path(__file__).parent.name
 
 class XVFI:
     @classmethod
-    def INPUT_TYPES(s):
+    def INPUT_TYPES(cls):
         return {
             "required": {
                 "ckpt_name": (list(CKPT_CONFIGS.keys()), ),

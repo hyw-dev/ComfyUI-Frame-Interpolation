@@ -65,7 +65,7 @@ def backwarp(tenIn: torch.Tensor, tenFlow: torch.Tensor):
     if tenFlow.shape[3] == tenFlow.shape[2]:
         tenFlow = tenFlow * (2.0 / ((tenFlow.shape[3] and tenFlow.shape[2]) - 1.0))
 
-    elif tenFlow.shape[3] != tenFlow.shape[2]:
+    else:
         tenFlow = tenFlow * torch.tensor(
             data=[2.0 / (tenFlow.shape[3] - 1.0), 2.0 / (tenFlow.shape[2] - 1.0)],
             dtype=tenFlow.dtype,
@@ -232,6 +232,9 @@ class Basic(torch.nn.Module):
 
             elif strPart.startswith("up") == True:
 
+
+
+
                 class Up(torch.nn.Module):
                     def __init__(self, strType):
                         super().__init__()
@@ -241,19 +244,19 @@ class Basic(torch.nn.Module):
                     # end
 
                     def forward(self, tenIn: torch.Tensor) -> torch.Tensor:
-                        if self.strType == "nearest":
-                            return torch.nn.functional.interpolate(
-                                input=tenIn,
-                                scale_factor=2.0,
-                                mode="nearest-exact",
-                                align_corners=False,
-                            )
-
-                        elif self.strType == "bilinear":
+                        if self.strType == "bilinear":
                             return torch.nn.functional.interpolate(
                                 input=tenIn,
                                 scale_factor=2.0,
                                 mode="bilinear",
+                                align_corners=False,
+                            )
+
+                        elif self.strType == "nearest":
+                            return torch.nn.functional.interpolate(
+                                input=tenIn,
+                                scale_factor=2.0,
+                                mode="nearest-exact",
                                 align_corners=False,
                             )
 
@@ -269,7 +272,8 @@ class Basic(torch.nn.Module):
 
                         assert False  # to make torchscript happy
 
-                    # end
+                                # end
+
 
                 # end
 
@@ -296,10 +300,10 @@ class Basic(torch.nn.Module):
                 ]
                 fltStride *= 1.0
 
-            elif True:
+            else:
                 assert False
 
-            # end
+                # end
         # end
 
         self.netMain = torch.nn.Sequential(*netMain)
@@ -319,7 +323,7 @@ class Basic(torch.nn.Module):
                         bias="nobias" not in self.strType.split("+"),
                     )
 
-                elif intIn == intOut and fltStride != 1.0:
+                elif intIn == intOut:
 
                     class Down(torch.nn.Module):
                         def __init__(self, fltScale):
@@ -343,8 +347,7 @@ class Basic(torch.nn.Module):
 
                     self.netShortcut = Down(1.0 / fltStride)
 
-                elif intIn != intOut and fltStride != 1.0:
-
+                else:
                     class Down(torch.nn.Module):
                         def __init__(self, fltScale):
                             super().__init__()
@@ -377,12 +380,9 @@ class Basic(torch.nn.Module):
                         ),
                     )
 
+                        # end
+
                 # end
-
-            elif strPart.startswith("...") == True:
-                pass
-
-            # end
         # end
 
         assert len(intChans) == 1
@@ -452,7 +452,7 @@ class Network(torch.nn.Module):
 
             # end
 
-        # end
+
 
         class Decoder(torch.nn.Module):
             def __init__(self, intChannels):
@@ -477,14 +477,12 @@ class Network(torch.nn.Module):
                     )
                 # end
 
-                tenMain = []
+                tenMain = [tenOne]
 
                 if tenFlow is None:
-                    tenMain.append(tenOne)
                     tenMain.append(self.netCostacti(costvol_func.apply(tenOne, tenTwo)))
 
-                elif tenFlow is not None:
-                    tenMain.append(tenOne)
+                else:
                     tenMain.append(
                         self.netCostacti(
                             costvol_func.apply(
@@ -500,7 +498,8 @@ class Network(torch.nn.Module):
                     torch.cat(tenMain, 1)
                 )
 
-            # end
+                # end
+
 
         # end
 
@@ -914,18 +913,18 @@ class M2M_PWC(torch.nn.Module):
 
         with torch.set_grad_enabled(False):
             tenStats = [im0, im1]
-            tenMean_ = sum([tenIn.mean([1, 2, 3], True) for tenIn in tenStats]) / len(
-                tenStats
-            )
+            tenMean_ = sum(
+                tenIn.mean([1, 2, 3], True) for tenIn in tenStats
+            ) / len(tenStats)
             tenStd_ = (
-                sum(
-                    [
+                (
+                    sum(
                         tenIn.std([1, 2, 3], False, True).square()
                         + (tenMean_ - tenIn.mean([1, 2, 3], True)).square()
                         for tenIn in tenStats
-                    ]
+                    )
+                    / len(tenStats)
                 )
-                / len(tenStats)
             ).sqrt()
 
             im0_o = (im0 - tenMean_) / (tenStd_ + 0.0000001)

@@ -19,7 +19,7 @@ def inference(model, img_batch_1, img_batch_2, inter_frames):
 
     splits = torch.linspace(0, 1, inter_frames + 2)
 
-    for _ in range(len(remains)):
+    for remain in remains:
         starts = splits[idxes[:-1]]
         ends = splits[idxes[1:]]
         distances = ((splits[None, remains] - starts[:, None]) / (ends[:, None] - starts[:, None]) - .5).abs()
@@ -42,7 +42,7 @@ def inference(model, img_batch_1, img_batch_2, inter_frames):
 
 class FILM_VFI:
     @classmethod
-    def INPUT_TYPES(s):
+    def INPUT_TYPES(cls):
         return {
             "required": {
                 "ckpt_name": (["film_net_fp32.pt"], ),

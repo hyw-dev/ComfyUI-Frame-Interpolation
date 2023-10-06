@@ -46,8 +46,8 @@ def softsplat_flowgrad(
     tenFlowgrad: ti.types.ndarray()
 ):
     N, C, H, W = tenFlowgrad.shape
+    fltFlowgrad = 0.0
     for i, ch, y, x in ti.ndrange(N, C, H, W):
-        fltFlowgrad = 0.0
         fltX = x + tenFlow[i, 0, y, x]
         fltY = y + tenFlow[i, 1, y, x]
 
@@ -61,7 +61,7 @@ def softsplat_flowgrad(
             fltNortheast = +1.0 * (southWest.y - fltY)
             fltSouthwest = -1.0 * (fltY - northEast.y)
             fltSoutheast = +1.0 * (fltY - northWest.y)
-        
+
         elif ch == 1:
             fltNorthwest = -1.0 * (southEast.x - fltX)
             fltNortheast = -1.0 * (fltX - southWest.x)
@@ -91,8 +91,8 @@ def softsplat_ingrad(
     tenFlowgrad: ti.types.ndarray()
 ):
     N, C, H, W = tenIngrad.shape
+    fltIngrad = 0.0
     for i, ch, y, x in ti.ndrange(N, C, H, W):
-        fltIngrad = 0.0
         fltX = x + tenFlow[i, 0, y, x]
         fltY = y + tenFlow[i, 1, y, x]
 
@@ -105,7 +105,7 @@ def softsplat_ingrad(
         fltNortheast = (fltX - southWest.x) * (southWest.y - fltY)
         fltSouthwest = (northEast.x - fltX) * (fltY - northEast.y)
         fltSoutheast = (fltX - northWest.x) * (fltY - northWest.y)
-        
+
         add_to_fltIngrad(fltIngrad, tenOutgrad, fltNorthwest, northWest, i, ch)
         add_to_fltIngrad(fltIngrad, tenOutgrad, fltNortheast, northEast, i, ch)
         add_to_fltIngrad(fltIngrad, tenOutgrad, fltSouthwest, southWest, i, ch)

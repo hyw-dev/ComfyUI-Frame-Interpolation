@@ -34,9 +34,7 @@ class Encoder(nn.Module):
         feats1 = self.body(x1)
         feats2 = self.body(x2)
 
-        feats = self.interpolate(feats1, feats2)
-
-        return feats
+        return self.interpolate(feats1, feats2)
 
 
 class Decoder(nn.Module):
@@ -60,10 +58,7 @@ class Decoder(nn.Module):
         )
 
     def forward(self, feats):
-        out = self.body(feats)
-        #out = self.conv_final(out)
-
-        return out
+        return self.body(feats)
 
 
 class CAIN_EncDec(nn.Module):

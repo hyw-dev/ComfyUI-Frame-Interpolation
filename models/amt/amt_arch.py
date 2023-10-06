@@ -30,8 +30,13 @@ def warp(img, flow):
     grid = torch.cat([xx, yy], 1).to(img)
     flow_ = torch.cat([flow[:, 0:1, :, :] / ((W - 1.0) / 2.0), flow[:, 1:2, :, :] / ((H - 1.0) / 2.0)], 1)
     grid_ = (grid + flow_).permute(0, 2, 3, 1)
-    output = F.grid_sample(input=img, grid=grid_, mode='bilinear', padding_mode='border', align_corners=True)
-    return output
+    return F.grid_sample(
+        input=img,
+        grid=grid_,
+        mode='bilinear',
+        padding_mode='border',
+        align_corners=True,
+    )
 
 
 def make_colorwheel():
@@ -54,28 +59,26 @@ def make_colorwheel():
 
     ncols = RY + YG + GC + CB + BM + MR
     colorwheel = np.zeros((ncols, 3))
-    col = 0
-
     # RY
     colorwheel[0:RY, 0] = 255
     colorwheel[0:RY, 1] = np.floor(255*np.arange(0,RY)/RY)
-    col = col+RY
+    col = 0 + RY
     # YG
     colorwheel[col:col+YG, 0] = 255 - np.floor(255*np.arange(0,YG)/YG)
     colorwheel[col:col+YG, 1] = 255
-    col = col+YG
+    col += YG
     # GC
     colorwheel[col:col+GC, 1] = 255
     colorwheel[col:col+GC, 2] = np.floor(255*np.arange(0,GC)/GC)
-    col = col+GC
+    col += GC
     # CB
     colorwheel[col:col+CB, 1] = 255 - np.floor(255*np.arange(CB)/CB)
     colorwheel[col:col+CB, 2] = 255
-    col = col+CB
+    col += CB
     # BM
     colorwheel[col:col+BM, 2] = 255
     colorwheel[col:col+BM, 0] = np.floor(255*np.arange(0,BM)/BM)
-    col = col+BM
+    col += BM
     # MR
     colorwheel[col:col+MR, 2] = 255 - np.floor(255*np.arange(MR)/MR)
     colorwheel[col:col+MR, 0] = 255
@@ -252,8 +255,9 @@ def readPFM(file):
     else:
         raise Exception('Not a PFM file.')
 
-    dim_match = re.match(r'^(\d+)\s(\d+)\s$', file.readline().decode("ascii"))
-    if dim_match:
+    if dim_match := re.match(
+        r'^(\d+)\s(\d+)\s$', file.readline().decode("ascii")
+    ):
         width, height = list(map(int, dim_match.groups()))
     else:
         raise Exception('Malformed PFM header.')
@@ -265,7 +269,7 @@ def readPFM(file):
     else:
         endian = '>'
 
-    data = np.fromfile(file, endian + 'f')
+    data = np.fromfile(file, f'{endian}f')
     shape = (height, width, 3) if color else (height, width)
 
     data = np.reshape(data, shape)
@@ -331,14 +335,14 @@ def writeFlow(name, flow):
 def readFloat(name):
     f = open(name, 'rb')
 
-    if(f.readline().decode("utf-8"))  != 'float\n':
-        raise Exception('float file %s did not contain <float> keyword' % name)
+    if (f.readline().decode("utf-8"))  != 'float\n':
+        raise Exception(f'float file {name} did not contain <float> keyword')
 
     dim = int(f.readline())
 
     dims = []
     count = 1
-    for i in range(0, dim):
+    for _ in range(0, dim):
         d = int(f.readline())
         dims.append(d)
         count *= d
@@ -380,18 +384,17 @@ def writeFloat(name, data):
 
 
 def check_dim_and_resize(tensor_list):
-    shape_list = []
-    for t in tensor_list:
-        shape_list.append(t.shape[2:])
-
+    shape_list = [t.shape[2:] for t in tensor_list]
     if len(set(shape_list)) > 1:
         desired_shape = shape_list[0]
         print(f'Inconsistent size of input video frames. All frames will be resized to {desired_shape}')
-        
-        resize_tensor_list = []
-        for t in tensor_list:
-            resize_tensor_list.append(torch.nn.functional.interpolate(t, size=tuple(desired_shape), mode='bilinear'))
 
+        resize_tensor_list = [
+            torch.nn.functional.interpolate(
+                t, size=tuple(desired_shape), mode='bilinear'
+            )
+            for t in tensor_list
+        ]
         tensor_list = resize_tensor_list
 
     return tensor_list
@@ -409,7 +412,7 @@ def check_dim_and_resize(tensor_list):
 class BottleneckBlock(nn.Module):
     def __init__(self, in_planes, planes, norm_fn='group', stride=1):
         super(BottleneckBlock, self).__init__()
-  
+
         self.conv1 = nn.Conv2d(in_planes, planes//4, kernel_size=1, padding=0)
         self.conv2 = nn.Conv2d(planes//4, planes//4, kernel_size=3, padding=1, stride=stride)
         self.conv3 = nn.Conv2d(planes//4, planes, kernel_size=1, padding=0)
@@ -421,33 +424,33 @@ class BottleneckBlock(nn.Module):
             self.norm1 = nn.GroupNorm(num_groups=num_groups, num_channels=planes//4)
             self.norm2 = nn.GroupNorm(num_groups=num_groups, num_channels=planes//4)
             self.norm3 = nn.GroupNorm(num_groups=num_groups, num_channels=planes)
-            if not stride == 1:
+            if stride != 1:
                 self.norm4 = nn.GroupNorm(num_groups=num_groups, num_channels=planes)
-        
+
         elif norm_fn == 'batch':
             self.norm1 = nn.BatchNorm2d(planes//4)
             self.norm2 = nn.BatchNorm2d(planes//4)
             self.norm3 = nn.BatchNorm2d(planes)
-            if not stride == 1:
+            if stride != 1:
                 self.norm4 = nn.BatchNorm2d(planes)
-        
+
         elif norm_fn == 'instance':
             self.norm1 = nn.InstanceNorm2d(planes//4)
             self.norm2 = nn.InstanceNorm2d(planes//4)
             self.norm3 = nn.InstanceNorm2d(planes)
-            if not stride == 1:
+            if stride != 1:
                 self.norm4 = nn.InstanceNorm2d(planes)
 
         elif norm_fn == 'none':
             self.norm1 = nn.Sequential()
             self.norm2 = nn.Sequential()
             self.norm3 = nn.Sequential()
-            if not stride == 1:
+            if stride != 1:
                 self.norm4 = nn.Sequential()
 
         if stride == 1:
             self.downsample = None
-        
+
         else:    
             self.downsample = nn.Sequential(
                 nn.Conv2d(in_planes, planes, kernel_size=1, stride=stride), self.norm4)
@@ -468,7 +471,7 @@ class BottleneckBlock(nn.Module):
 class ResidualBlock(nn.Module):
     def __init__(self, in_planes, planes, norm_fn='group', stride=1):
         super(ResidualBlock, self).__init__()
-  
+
         self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, padding=1, stride=stride)
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, padding=1)
         self.relu = nn.ReLU(inplace=True)
@@ -478,30 +481,30 @@ class ResidualBlock(nn.Module):
         if norm_fn == 'group':
             self.norm1 = nn.GroupNorm(num_groups=num_groups, num_channels=planes)
             self.norm2 = nn.GroupNorm(num_groups=num_groups, num_channels=planes)
-            if not stride == 1:
+            if stride != 1:
                 self.norm3 = nn.GroupNorm(num_groups=num_groups, num_channels=planes)
-        
+
         elif norm_fn == 'batch':
             self.norm1 = nn.BatchNorm2d(planes)
             self.norm2 = nn.BatchNorm2d(planes)
-            if not stride == 1:
+            if stride != 1:
                 self.norm3 = nn.BatchNorm2d(planes)
-        
+
         elif norm_fn == 'instance':
             self.norm1 = nn.InstanceNorm2d(planes)
             self.norm2 = nn.InstanceNorm2d(planes)
-            if not stride == 1:
+            if stride != 1:
                 self.norm3 = nn.InstanceNorm2d(planes)
 
         elif norm_fn == 'none':
             self.norm1 = nn.Sequential()
             self.norm2 = nn.Sequential()
-            if not stride == 1:
+            if stride != 1:
                 self.norm3 = nn.Sequential()
 
         if stride == 1:
             self.downsample = None
-        
+
         else:    
             self.downsample = nn.Sequential(
                 nn.Conv2d(in_planes, planes, kernel_size=1, stride=stride), self.norm3)
@@ -570,7 +573,7 @@ class SmallEncoder(nn.Module):
     def forward(self, x):
 
         # if input is list, combine batch dimension
-        is_list = isinstance(x, tuple) or isinstance(x, list)
+        is_list = isinstance(x, (tuple, list))
         if is_list:
             batch_dim = x[0].shape[0]
             x = torch.cat(x, dim=0)
@@ -645,7 +648,7 @@ class BasicEncoder(nn.Module):
     def forward(self, x):
 
         # if input is list, combine batch dimension
-        is_list = isinstance(x, tuple) or isinstance(x, list)
+        is_list = isinstance(x, (tuple, list))
         if is_list:
             batch_dim = x[0].shape[0]
             x = torch.cat(x, dim=0)
@@ -722,7 +725,7 @@ class LargeEncoder(nn.Module):
     def forward(self, x):
 
         # if input is list, combine batch dimension
-        is_list = isinstance(x, tuple) or isinstance(x, list)
+        is_list = isinstance(x, (tuple, list))
         if is_list:
             batch_dim = x[0].shape[0]
             x = torch.cat(x, dim=0)
@@ -874,7 +877,7 @@ class IntermediateDecoder(nn.Module):
 
 def multi_flow_combine(comb_block, img0, img1, flow0, flow1, 
                        mask=None, img_res=None, mean=None):
-        '''
+    '''
             A parallel implementation of multiple flow field warping 
             comb_block: An nn.Seqential object.
             img shape: [b, c, h, w]
@@ -886,26 +889,25 @@ def multi_flow_combine(comb_block, img0, img1, flow0, flow1,
             mean (opt):
                 If 'mean' is None, the function adds zero instead.       
         '''
-        b, c, h, w = flow0.shape
-        num_flows = c // 2
-        flow0   =   flow0.reshape(b, num_flows, 2, h, w).reshape(-1, 2, h, w)
-        flow1   =   flow1.reshape(b, num_flows, 2, h, w).reshape(-1, 2, h, w)
-        
-        mask    =    mask.reshape(b, num_flows, 1, h, w
-                            ).reshape(-1, 1, h, w) if mask is not None else None
-        img_res = img_res.reshape(b, num_flows, 3, h, w
-                            ).reshape(-1, 3, h, w)  if img_res is not None else 0
-        img0 = torch.stack([img0] * num_flows, 1).reshape(-1, 3, h, w)
-        img1 = torch.stack([img1] * num_flows, 1).reshape(-1, 3, h, w)
-        mean = torch.stack([mean] * num_flows, 1).reshape(-1, 1, 1, 1
-                                                    ) if mean is not None else 0
-        
-        img0_warp = warp(img0, flow0)
-        img1_warp = warp(img1, flow1)
-        img_warps = mask * img0_warp + (1 - mask) * img1_warp + mean + img_res
-        img_warps = img_warps.reshape(b, num_flows, 3, h, w)
-        imgt_pred = img_warps.mean(1) + comb_block(img_warps.view(b, -1, h, w))
-        return imgt_pred
+    b, c, h, w = flow0.shape
+    num_flows = c // 2
+    flow0   =   flow0.reshape(b, num_flows, 2, h, w).reshape(-1, 2, h, w)
+    flow1   =   flow1.reshape(b, num_flows, 2, h, w).reshape(-1, 2, h, w)
+
+    mask    =    mask.reshape(b, num_flows, 1, h, w
+                        ).reshape(-1, 1, h, w) if mask is not None else None
+    img_res = img_res.reshape(b, num_flows, 3, h, w
+                        ).reshape(-1, 3, h, w)  if img_res is not None else 0
+    img0 = torch.stack([img0] * num_flows, 1).reshape(-1, 3, h, w)
+    img1 = torch.stack([img1] * num_flows, 1).reshape(-1, 3, h, w)
+    mean = torch.stack([mean] * num_flows, 1).reshape(-1, 1, 1, 1
+                                                ) if mean is not None else 0
+
+    img0_warp = warp(img0, flow0)
+    img1_warp = warp(img1, flow1)
+    img_warps = mask * img0_warp + (1 - mask) * img1_warp + mean + img_res
+    img_warps = img_warps.reshape(b, num_flows, 3, h, w)
+    return img_warps.mean(1) + comb_block(img_warps.view(b, -1, h, w))
 
 
 class MultiFlowDecoder(nn.Module):
@@ -1216,7 +1218,7 @@ class AMT_S(nn.Module):
         img1_ = resize(img1, scale_factor) if scale_factor != 1.0 else img1
         b, _, h, w = img0_.shape
         coord = coords_grid(b, h // 8, w // 8, img0.device)
-        
+
         fmap0, fmap1 = self.feat_encoder([img0_, img1_]) # [1, 128, H//8, W//8]
         corr_fn = BidirCorrBlock(fmap0, fmap1, radius=self.radius, num_levels=self.corr_levels)
 
@@ -1256,7 +1258,7 @@ class AMT_S(nn.Module):
         corr_2, flow_2 = self._corr_scale_lookup(corr_fn, 
                                                  coord, up_flow0_2, up_flow1_2, 
                                                  embt, downsample=4)
-        
+
         # residue update with lookup corr
         delta_ft_1_, delta_flow_2 = self.update2(ft_1_, flow_2, corr_2)
         delta_flow0_2, delta_flow1_2 = torch.chunk(delta_flow_2, 2, 1)
@@ -1266,13 +1268,13 @@ class AMT_S(nn.Module):
 
         ######################################### the 1st decoder #########################################
         up_flow0_1, up_flow1_1, mask, img_res = self.decoder1(ft_1_, f0_1, f1_1, up_flow0_2, up_flow1_2)
-        
+
         if scale_factor != 1.0: 
             up_flow0_1 = resize(up_flow0_1, scale_factor=(1.0/scale_factor)) * (1.0/scale_factor)
             up_flow1_1 = resize(up_flow1_1, scale_factor=(1.0/scale_factor)) * (1.0/scale_factor)
             mask = resize(mask, scale_factor=(1.0/scale_factor))
             img_res = resize(img_res, scale_factor=(1.0/scale_factor))
-        
+
         # Merge multiple predictions 
         imgt_pred = multi_flow_combine(self.comb_block, img0, img1, up_flow0_1, up_flow1_1, 
                                                                         mask, img_res, mean_)
@@ -1280,15 +1282,14 @@ class AMT_S(nn.Module):
 
         if eval:
             return  { 'imgt_pred': imgt_pred, }
-        else:
-            up_flow0_1 = up_flow0_1.reshape(b, self.num_flows, 2, h, w)
-            up_flow1_1 = up_flow1_1.reshape(b, self.num_flows, 2, h, w)
-            return {
-                'imgt_pred': imgt_pred,
-                'flow0_pred': [up_flow0_1, up_flow0_2, up_flow0_3, up_flow0_4],
-                'flow1_pred': [up_flow1_1, up_flow1_2, up_flow1_3, up_flow1_4],
-                'ft_pred': [ft_1_, ft_2_, ft_3_],
-            }
+        up_flow0_1 = up_flow0_1.reshape(b, self.num_flows, 2, h, w)
+        up_flow1_1 = up_flow1_1.reshape(b, self.num_flows, 2, h, w)
+        return {
+            'imgt_pred': imgt_pred,
+            'flow0_pred': [up_flow0_1, up_flow0_2, up_flow0_3, up_flow0_4],
+            'flow1_pred': [up_flow1_1, up_flow1_2, up_flow1_3, up_flow1_4],
+            'ft_pred': [ft_1_, ft_2_, ft_3_],
+        }
 
 
 
@@ -1360,7 +1361,7 @@ class AMT_L(nn.Module):
         img1_ = resize(img1, scale_factor) if scale_factor != 1.0 else img1
         b, _, h, w = img0_.shape
         coord = coords_grid(b, h // 8, w // 8, img0.device)
-        
+
         fmap0, fmap1 = self.feat_encoder([img0_, img1_]) # [1, 128, H//8, W//8]
         corr_fn = BidirCorrBlock(fmap0, fmap1, radius=self.radius, num_levels=self.corr_levels)
 
@@ -1400,7 +1401,7 @@ class AMT_L(nn.Module):
         corr_2, flow_2 = self._corr_scale_lookup(corr_fn, 
                                                  coord, up_flow0_2, up_flow1_2, 
                                                  embt, downsample=4)
-        
+
         # residue update with lookup corr
         delta_ft_1_, delta_flow_2 = self.update2(ft_1_, flow_2, corr_2)
         delta_flow0_2, delta_flow1_2 = torch.chunk(delta_flow_2, 2, 1)
@@ -1410,7 +1411,7 @@ class AMT_L(nn.Module):
 
         ######################################### the 1st decoder #########################################
         up_flow0_1, up_flow1_1, mask, img_res = self.decoder1(ft_1_, f0_1, f1_1, up_flow0_2, up_flow1_2)
-        
+
         if scale_factor != 1.0: 
             up_flow0_1 = resize(up_flow0_1, scale_factor=(1.0/scale_factor)) * (1.0/scale_factor)
             up_flow1_1 = resize(up_flow1_1, scale_factor=(1.0/scale_factor)) * (1.0/scale_factor)
@@ -1424,15 +1425,14 @@ class AMT_L(nn.Module):
 
         if eval:
             return  { 'imgt_pred': imgt_pred, }
-        else:
-            up_flow0_1 = up_flow0_1.reshape(b, self.num_flows, 2, h, w)
-            up_flow1_1 = up_flow1_1.reshape(b, self.num_flows, 2, h, w)
-            return {
-                'imgt_pred': imgt_pred,
-                'flow0_pred': [up_flow0_1, up_flow0_2, up_flow0_3, up_flow0_4],
-                'flow1_pred': [up_flow1_1, up_flow1_2, up_flow1_3, up_flow1_4],
-                'ft_pred': [ft_1_, ft_2_, ft_3_],
-            }
+        up_flow0_1 = up_flow0_1.reshape(b, self.num_flows, 2, h, w)
+        up_flow1_1 = up_flow1_1.reshape(b, self.num_flows, 2, h, w)
+        return {
+            'imgt_pred': imgt_pred,
+            'flow0_pred': [up_flow0_1, up_flow0_2, up_flow0_3, up_flow0_4],
+            'flow1_pred': [up_flow1_1, up_flow1_2, up_flow1_3, up_flow1_4],
+            'ft_pred': [ft_1_, ft_2_, ft_3_],
+        }
 
 
 
@@ -1505,7 +1505,7 @@ class AMT_G(nn.Module):
         img1_ = resize(img1, scale_factor) if scale_factor != 1.0 else img1
         b, _, h, w = img0_.shape
         coord = coords_grid(b, h // 8, w // 8, img0.device)
-        
+
         fmap0, fmap1 = self.feat_encoder([img0_, img1_]) # [1, 128, H//8, W//8]
         corr_fn = BidirCorrBlock(fmap0, fmap1, radius=self.radius, num_levels=self.corr_levels)
 
@@ -1539,7 +1539,7 @@ class AMT_G(nn.Module):
         up_flow0_3 = up_flow0_3 + delta_flow0_3
         up_flow1_3 = up_flow1_3 + delta_flow1_3
         ft_2_ = ft_2_ + delta_ft_2_
-        
+
         # residue update with lookup corr (hr)
         corr_3 = resize(corr_3, scale_factor=2.0)
         up_flow_3 = torch.cat([up_flow0_3, up_flow1_3], dim=1)
@@ -1547,20 +1547,20 @@ class AMT_G(nn.Module):
         ft_2_ += delta_ft_2_
         up_flow0_3 += delta_up_flow_3[:, 0:2]
         up_flow1_3 += delta_up_flow_3[:, 2:4]
-        
+
         ######################################### the 2nd decoder #########################################
         up_flow0_2, up_flow1_2, ft_1_  = self.decoder2(ft_2_, f0_2, f1_2, up_flow0_3, up_flow1_3)
         corr_2, flow_2 = self._corr_scale_lookup(corr_fn, 
                                                  coord, up_flow0_2, up_flow1_2, 
                                                  embt, downsample=4)
-        
+
         # residue update with lookup corr
         delta_ft_1_, delta_flow_2 = self.update2_low(ft_1_, flow_2, corr_2)
         delta_flow0_2, delta_flow1_2 = torch.chunk(delta_flow_2, 2, 1)
         up_flow0_2 = up_flow0_2 + delta_flow0_2
         up_flow1_2 = up_flow1_2 + delta_flow1_2
         ft_1_ = ft_1_ + delta_ft_1_
-        
+
         # residue update with lookup corr (hr)
         corr_2 = resize(corr_2, scale_factor=4.0)
         up_flow_2 = torch.cat([up_flow0_2, up_flow1_2], dim=1)
@@ -1568,10 +1568,10 @@ class AMT_G(nn.Module):
         ft_1_ += delta_ft_1_
         up_flow0_2 += delta_up_flow_2[:, 0:2]
         up_flow1_2 += delta_up_flow_2[:, 2:4]
-        
+
         ######################################### the 1st decoder #########################################
         up_flow0_1, up_flow1_1, mask, img_res = self.decoder1(ft_1_, f0_1, f1_1, up_flow0_2, up_flow1_2)
-        
+
         if scale_factor != 1.0: 
             up_flow0_1 = resize(up_flow0_1, scale_factor=(1.0/scale_factor)) * (1.0/scale_factor)
             up_flow1_1 = resize(up_flow1_1, scale_factor=(1.0/scale_factor)) * (1.0/scale_factor)
@@ -1585,12 +1585,11 @@ class AMT_G(nn.Module):
 
         if eval:
             return  { 'imgt_pred': imgt_pred, }
-        else:
-            up_flow0_1 = up_flow0_1.reshape(b, self.num_flows, 2, h, w)
-            up_flow1_1 = up_flow1_1.reshape(b, self.num_flows, 2, h, w)
-            return {
-                'imgt_pred': imgt_pred,
-                'flow0_pred': [up_flow0_1, up_flow0_2, up_flow0_3, up_flow0_4],
-                'flow1_pred': [up_flow1_1, up_flow1_2, up_flow1_3, up_flow1_4],
-                'ft_pred': [ft_1_, ft_2_, ft_3_],
-            }
+        up_flow0_1 = up_flow0_1.reshape(b, self.num_flows, 2, h, w)
+        up_flow1_1 = up_flow1_1.reshape(b, self.num_flows, 2, h, w)
+        return {
+            'imgt_pred': imgt_pred,
+            'flow0_pred': [up_flow0_1, up_flow0_2, up_flow0_3, up_flow0_4],
+            'flow1_pred': [up_flow1_1, up_flow1_2, up_flow1_3, up_flow1_4],
+            'ft_pred': [ft_1_, ft_2_, ft_3_],
+        }

@@ -62,8 +62,7 @@ class UpConvNorm(nn.Module):
                 ConvNorm(in_channels, out_channels, kernel_size=1, stride=1, norm=norm))
     
     def forward(self, x):
-        out = self.upconv(x)
-        return out
+        return self.upconv(x)
 
 
 
@@ -172,10 +171,7 @@ class RCAB(nn.Module):
             res = self.downConv(res)
         out += res
 
-        if self.return_ca:
-            return out, ca
-        else:
-            return out
+        return (out, ca) if self.return_ca else out
 
 
 ## Residual Group (RG)
@@ -220,7 +216,7 @@ class PixelShuffle(nn.Module):
     def forward(self, x):
         return pixel_shuffle(x, self.scale_factor)
     def extra_repr(self):
-        return 'scale_factor={}'.format(self.scale_factor)
+        return f'scale_factor={self.scale_factor}'
 
 
 def conv(in_channels, out_channels, kernel_size, 
@@ -327,8 +323,7 @@ class Interpolation(nn.Module):
         res = self.body(x)
         res += x
 
-        out = self.tailConv(res)
-        return out
+        return self.tailConv(res)
 
 
 class Interpolation_res(nn.Module):

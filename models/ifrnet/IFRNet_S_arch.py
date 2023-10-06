@@ -19,20 +19,18 @@ def warp(img, flow):
         1,
     )
     grid_ = (grid + flow_).permute(0, 2, 3, 1)
-    output = F.grid_sample(
+    return F.grid_sample(
         input=img,
         grid=grid_,
         mode="bilinear",
         padding_mode="border",
         align_corners=True,
     )
-    return output
 
 
 def get_robust_weight(flow_pred, flow_gt, beta):
     epe = ((flow_pred.detach() - flow_gt) ** 2).sum(dim=1, keepdim=True) ** 0.5
-    robust_weight = torch.exp(-beta * epe)
-    return robust_weight
+    return torch.exp(-beta * epe)
 
 
 def resize(x, scale_factor):
@@ -159,8 +157,7 @@ class Decoder4(nn.Module):
         b, c, h, w = f0.shape
         embt = embt.repeat(1, 1, h, w)
         f_in = torch.cat([f0, f1, embt], 1)
-        f_out = self.convblock(f_in)
-        return f_out
+        return self.convblock(f_in)
 
 
 class Decoder3(nn.Module):
@@ -176,8 +173,7 @@ class Decoder3(nn.Module):
         f0_warp = warp(f0, up_flow0)
         f1_warp = warp(f1, up_flow1)
         f_in = torch.cat([ft_, f0_warp, f1_warp, up_flow0, up_flow1], 1)
-        f_out = self.convblock(f_in)
-        return f_out
+        return self.convblock(f_in)
 
 
 class Decoder2(nn.Module):
@@ -193,8 +189,7 @@ class Decoder2(nn.Module):
         f0_warp = warp(f0, up_flow0)
         f1_warp = warp(f1, up_flow1)
         f_in = torch.cat([ft_, f0_warp, f1_warp, up_flow0, up_flow1], 1)
-        f_out = self.convblock(f_in)
-        return f_out
+        return self.convblock(f_in)
 
 
 class Decoder1(nn.Module):
@@ -210,8 +205,7 @@ class Decoder1(nn.Module):
         f0_warp = warp(f0, up_flow0)
         f1_warp = warp(f1, up_flow1)
         f_in = torch.cat([ft_, f0_warp, f1_warp, up_flow0, up_flow1], 1)
-        f_out = self.convblock(f_in)
-        return f_out
+        return self.convblock(f_in)
 
 
 class IRFNet_S(nn.Module):

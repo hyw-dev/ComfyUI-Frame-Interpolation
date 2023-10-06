@@ -4,6 +4,7 @@ https://github.com/sniklaus/revisiting-sepconv/blob/fea509d98157170df1fb35bf615b
 https://github.com/sniklaus/revisiting-sepconv/blob/fea509d98157170df1fb35bf615bd41d98858e1a/sepconv/sepconv.py
 Deleted stuffs about arguments_strModel and getopt
 """
+
 #!/usr/bin/env python
 import torch
 import typing
@@ -29,9 +30,7 @@ import typing
 
 ##########################################################
 
-assert (
-    int(str("").join(torch.__version__.split(".")[0:2])) >= 13
-)  # requires at least pytorch version 1.3.0
+assert int("".join(torch.__version__.split(".")[:2])) >= 13
 
 torch.set_grad_enabled(
     False
@@ -66,7 +65,7 @@ class Basic(torch.nn.Module):
         intChans = intChans.copy()
         fltStride = 1.0
 
-        for intPart, strPart in enumerate(self.strType.split("+")[0].split("-")):
+        for strPart in self.strType.split("+")[0].split("-"):
             if strPart.startswith("conv") == True:
                 intKsize = 3
                 intPad = 1
@@ -135,6 +134,9 @@ class Basic(torch.nn.Module):
 
             elif strPart.startswith("up") == True:
 
+
+
+
                 class Up(torch.nn.Module):
                     def __init__(self, strType):
                         super().__init__()
@@ -144,19 +146,19 @@ class Basic(torch.nn.Module):
                     # end
 
                     def forward(self, tenIn: torch.Tensor) -> torch.Tensor:
-                        if self.strType == "nearest":
-                            return torch.nn.functional.interpolate(
-                                input=tenIn,
-                                scale_factor=2.0,
-                                mode="nearest",
-                                align_corners=False,
-                            )
-
-                        elif self.strType == "bilinear":
+                        if self.strType == "bilinear":
                             return torch.nn.functional.interpolate(
                                 input=tenIn,
                                 scale_factor=2.0,
                                 mode="bilinear",
+                                align_corners=False,
+                            )
+
+                        elif self.strType == "nearest":
+                            return torch.nn.functional.interpolate(
+                                input=tenIn,
+                                scale_factor=2.0,
+                                mode="nearest",
                                 align_corners=False,
                             )
 
@@ -172,7 +174,8 @@ class Basic(torch.nn.Module):
 
                         assert False  # to make torchscript happy
 
-                    # end
+                                # end
+
 
                 # end
 
@@ -199,10 +202,9 @@ class Basic(torch.nn.Module):
                 ]
                 fltStride *= 1.0
 
-            elif True:
+            else:
                 assert False
 
-            # end
         # end
 
         self.netMain = torch.nn.Sequential(*netMain)
@@ -222,7 +224,7 @@ class Basic(torch.nn.Module):
                         bias="nobias" not in self.strType.split("+"),
                     )
 
-                elif intIn == intOut and fltStride != 1.0:
+                elif intIn == intOut:
 
                     class Down(torch.nn.Module):
                         def __init__(self, fltScale):
@@ -246,8 +248,7 @@ class Basic(torch.nn.Module):
 
                     self.netShortcut = Down(1.0 / fltStride)
 
-                elif intIn != intOut and fltStride != 1.0:
-
+                else:
                     class Down(torch.nn.Module):
                         def __init__(self, fltScale):
                             super().__init__()
@@ -280,12 +281,9 @@ class Basic(torch.nn.Module):
                         ),
                     )
 
+                        # end
+
                 # end
-
-            elif strPart.startswith("...") == True:
-                pass
-
-            # end
         # end
 
         assert len(intChans) == 1
@@ -374,28 +372,20 @@ class Encode(torch.nn.Module):
     # end
 
     def forward(self, tenIns: typing.List[torch.Tensor]) -> typing.List[torch.Tensor]:
-        intRow = 0
-        for netHor in self.netHor:
+        for intRow, netHor in enumerate(self.netHor):
             if self.intOuts[intRow] != 0:
                 if self.intIns[intRow] != 0:
                     tenIns[intRow] = netHor(tenIns[intRow])
                 # end
-            # end
-            intRow += 1
-        # end
-
-        intRow = 0
-        for netVer in self.netVer:
+        for intRow, netVer in enumerate(self.netVer):
             if self.intOuts[intRow] != 0:
                 if intRow != 0:
                     tenIns[intRow] = tenIns[intRow] + netVer(tenIns[intRow - 1])
                 # end
-            # end
-            intRow += 1
         # end
 
         for intRow, tenIn in enumerate(tenIns):
-            self.objScratch["levelshape" + str(intRow)] = tenIn.shape
+            self.objScratch[f"levelshape{str(intRow)}"] = tenIn.shape
         # end
 
         return tenIns
@@ -485,10 +475,10 @@ class Decode(torch.nn.Module):
                 if intRow != self.intRows - 1:
                     tenVer = netVer(tenIns[intRow + 1])
 
-                    if "levelshape" + str(intRow) in self.objScratch:
+                    if f"levelshape{str(intRow)}" in self.objScratch:
                         if (
                             tenVer.shape[2]
-                            == self.objScratch["levelshape" + str(intRow)][2] + 1
+                            == self.objScratch[f"levelshape{str(intRow)}"][2] + 1
                         ):
                             tenVer = torch.nn.functional.pad(
                                 input=tenVer,
@@ -498,7 +488,7 @@ class Decode(torch.nn.Module):
                             )
                         if (
                             tenVer.shape[3]
-                            == self.objScratch["levelshape" + str(intRow)][3] + 1
+                            == self.objScratch[f"levelshape{str(intRow)}"][3] + 1
                         ):
                             tenVer = torch.nn.functional.pad(
                                 input=tenVer,
@@ -509,7 +499,7 @@ class Decode(torch.nn.Module):
                     # end
 
                     tenIns[intRow] = tenIns[intRow] + tenVer
-                # end
+                        # end
             # end
             intRow -= 1
         # end

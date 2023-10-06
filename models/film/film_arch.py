@@ -516,7 +516,7 @@ class FlowEstimator(nn.Module):
         super(FlowEstimator, self).__init__()
 
         self._convs = nn.ModuleList()
-        for i in range(num_convs):
+        for _ in range(num_convs):
             self._convs.append(conv(in_channels=in_channels, out_channels=num_filters, size=3))
             in_channels = num_filters
         self._convs.append(conv(in_channels, num_filters // 2, size=1))
@@ -756,19 +756,19 @@ def pyramid_warp(feature_pyramid: List[torch.Tensor],
     Returns:
       Reverse warped feature pyramid.
     """
-    warped_feature_pyramid = []
-    for features, flow in zip(feature_pyramid, flow_pyramid):
-        warped_feature_pyramid.append(warp(features, flow))
-    return warped_feature_pyramid
+    return [
+        warp(features, flow)
+        for features, flow in zip(feature_pyramid, flow_pyramid)
+    ]
 
 
 def concatenate_pyramids(pyramid1: List[torch.Tensor],
                          pyramid2: List[torch.Tensor]) -> List[torch.Tensor]:
     """Concatenates each pyramid level together in the channel dimension."""
-    result = []
-    for features1, features2 in zip(pyramid1, pyramid2):
-        result.append(torch.cat([features1, features2], dim=1))
-    return result
+    return [
+        torch.cat([features1, features2], dim=1)
+        for features1, features2 in zip(pyramid1, pyramid2)
+    ]
 
 
 def conv(in_channels, out_channels, size, activation: Optional[str] = 'relu'):

@@ -200,13 +200,11 @@ class VideoResNet(nn.Module):
             )
             stride = ds_stride
 
-        layers = []
-        layers.append(block(self.inplanes, planes, conv_builder, stride, downsample ))
-
+        layers = [block(self.inplanes, planes, conv_builder, stride, downsample)]
         self.inplanes = planes * block.expansion
-        for i in range(1, blocks):
-            layers.append(block(self.inplanes, planes, conv_builder ))
-
+        layers.extend(
+            block(self.inplanes, planes, conv_builder) for _ in range(1, blocks)
+        )
         return nn.Sequential(*layers)
 
     def _initialize_weights(self):
@@ -248,11 +246,7 @@ def unet_18(pretrained=False, bn=False, progress=True, **kwargs):
         nn.Module: R3D-18 encoder
     """
     global batchnorm
-    if bn:
-        batchnorm = nn.BatchNorm3d
-    else:
-        batchnorm = identity
-
+    batchnorm = nn.BatchNorm3d if bn else identity
     return _video_resnet('r3d_18',
                          pretrained, progress,
                          block=BasicBlock,
@@ -274,12 +268,7 @@ def unet_34(pretrained=False, bn=False, progress=True, **kwargs):
     """
     global batchnorm
     # bn = False
-    if bn:
-        batchnorm = nn.BatchNorm3d
-    else:
-        batchnorm = identity
-
-
+    batchnorm = nn.BatchNorm3d if bn else identity
     return _video_resnet('r3d_34',
                          pretrained, progress,
                          block=BasicBlock,

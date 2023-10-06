@@ -210,8 +210,8 @@ class softsplat_func(torch.autograd.Function):
                     {"tenIn": tenIn, "tenFlow": tenFlow, "tenOut": tenOut},
                 )
             )(
-                grid=tuple([int((tenOut.nelement() + 512 - 1) / 512), 1, 1]),
-                block=tuple([512, 1, 1]),
+                grid=(int((tenOut.nelement() + 512 - 1) / 512), 1, 1),
+                block=(512, 1, 1),
                 args=[
                     cuda_int32(tenOut.nelement()),
                     tenIn.data_ptr(),
@@ -223,7 +223,7 @@ class softsplat_func(torch.autograd.Function):
                 ),
             )
 
-        elif tenIn.is_cuda != True:
+        else:
             assert False
 
         # end
@@ -271,8 +271,8 @@ class softsplat_func(torch.autograd.Function):
                     },
                 )
             )(
-                grid=tuple([int((tenIngrad.nelement() + 512 - 1) / 512), 1, 1]),
-                block=tuple([512, 1, 1]),
+                grid=(int((tenIngrad.nelement() + 512 - 1) / 512), 1, 1),
+                block=(512, 1, 1),
                 args=[
                     cuda_int32(tenIngrad.nelement()),
                     tenIn.data_ptr(),
@@ -301,8 +301,8 @@ class softsplat_func(torch.autograd.Function):
                     },
                 )
             )(
-                grid=tuple([int((tenFlowgrad.nelement() + 512 - 1) / 512), 1, 1]),
-                block=tuple([512, 1, 1]),
+                grid=(int((tenFlowgrad.nelement() + 512 - 1) / 512), 1, 1),
+                block=(512, 1, 1),
                 args=[
                     cuda_int32(tenFlowgrad.nelement()),
                     tenIn.data_ptr(),
@@ -384,9 +384,7 @@ def softsplat(
 ):
     assert strMode.split("-")[0] in ["sum", "avg", "linear", "soft"]
 
-    if strMode == "sum":
-        assert tenMetric is None
-    if strMode == "avg":
+    if strMode in {"sum", "avg"}:
         assert tenMetric is None
     if strMode.split("-")[0] == "linear":
         assert tenMetric is not None
