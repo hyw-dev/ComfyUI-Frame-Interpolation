@@ -13,7 +13,7 @@ CKPT_NAMES = ["IFRNet_S_Vimeo90K.pth", "IFRNet_L_Vimeo90K.pth"]
 
 class IFRNet_VFI:
     @classmethod
-    def INPUT_TYPES(s):
+    def INPUT_TYPES(cls):
         return {
             "required": {
                 "ckpt_name": (CKPT_NAMES, ),

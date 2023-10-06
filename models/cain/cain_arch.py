@@ -28,9 +28,7 @@ class Encoder(nn.Module):
         feats1 = self.shuffler(x1)
         feats2 = self.shuffler(x2)
 
-        feats = self.interpolate(feats1, feats2)
-
-        return feats
+        return self.interpolate(feats1, feats2)
 
 
 class Decoder(nn.Module):
@@ -42,8 +40,7 @@ class Decoder(nn.Module):
         self.shuffler = PixelShuffle(2**depth)
 
     def forward(self, feats):
-        out = self.shuffler(feats)
-        return out
+        return self.shuffler(feats)
 
 
 class CAIN(nn.Module):

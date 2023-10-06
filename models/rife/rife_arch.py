@@ -401,13 +401,13 @@ class IFNet(nn.Module):
                     flow,
                     scale=scale_list[i],
                 )
-                if self.arch_ver == "4.0":
-                    if (
+                if (
                         i == 1
                         and f0[:, :2].abs().max() > 32
                         and f0[:, 2:4].abs().max() > 32
                         and not training
                     ):
+                    if self.arch_ver == "4.0":
                         for k in range(4):
                             scale_list[k] *= 2
                         flow, mask = block[0](

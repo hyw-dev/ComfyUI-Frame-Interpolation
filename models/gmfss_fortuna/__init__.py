@@ -78,7 +78,7 @@ class CommonModelInference(nn.Module):
 
 class GMFSS_Fortuna_VFI:
     @classmethod
-    def INPUT_TYPES(s):
+    def INPUT_TYPES(cls):
         return {
             "required": {
                 "ckpt_name": (list(CKPTS_PATH_CONFIG.keys()), ),

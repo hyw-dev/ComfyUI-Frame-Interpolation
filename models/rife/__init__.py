@@ -25,7 +25,7 @@ CKPT_NAME_VER_DICT = {
 
 class RIFE_VFI:
     @classmethod
-    def INPUT_TYPES(s):
+    def INPUT_TYPES(cls):
         return {
             "required": {
                 "ckpt_name": (list(CKPT_NAME_VER_DICT.keys()), ),

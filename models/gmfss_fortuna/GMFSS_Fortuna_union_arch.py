@@ -110,11 +110,7 @@ class MultiScaleTridentConv(nn.Module):
         self.weight = nn.Parameter(
             torch.Tensor(out_channels, in_channels // groups, *self.kernel_size)
         )
-        if bias:
-            self.bias = nn.Parameter(torch.Tensor(out_channels))
-        else:
-            self.bias = None
-
+        self.bias = nn.Parameter(torch.Tensor(out_channels)) if bias else None
         nn.init.kaiming_uniform_(self.weight, nonlinearity="relu")
         if self.bias is not None:
             nn.init.constant_(self.bias, 0)
@@ -194,7 +190,7 @@ class ResidualBlock_class(nn.Module):
 
         self.norm1 = norm_layer(planes)
         self.norm2 = norm_layer(planes)
-        if not stride == 1 or in_planes != planes:
+        if stride != 1 or in_planes != planes:
             self.norm3 = norm_layer(planes)
 
         if stride == 1 and in_planes == planes:
@@ -304,12 +300,7 @@ class CNNEncoder(nn.Module):
 
         x = self.conv2(x)
 
-        if self.num_branch > 1:
-            out = self.trident_conv([x] * self.num_branch)  # high to low res
-        else:
-            out = [x]
-
-        return out
+        return self.trident_conv([x] * self.num_branch) if self.num_branch > 1 else [x]
 
 
 def single_head_full_attention(q, k, v):
@@ -318,9 +309,7 @@ def single_head_full_attention(q, k, v):
 
     scores = torch.matmul(q, k.permute(0, 2, 1)) / (q.size(2) ** 0.5)  # [B, L, L]
     attn = torch.softmax(scores, dim=2)  # [B, L, L]
-    out = torch.matmul(attn, v)  # [B, L, C]
-
-    return out
+    return torch.matmul(attn, v)
 
 
 def generate_shift_window_attn_mask(
@@ -357,8 +346,8 @@ def generate_shift_window_attn_mask(
 
     mask_windows = mask_windows.view(-1, window_size_h * window_size_w)
     attn_mask = mask_windows.unsqueeze(1) - mask_windows.unsqueeze(2)
-    attn_mask = attn_mask.masked_fill(attn_mask != 0, float(-100.0)).masked_fill(
-        attn_mask == 0, float(0.0)
+    attn_mask = attn_mask.masked_fill(attn_mask != 0, -100.0).masked_fill(
+        attn_mask == 0, 0.0
     )
 
     return attn_mask
@@ -613,9 +602,7 @@ class FeatureTransformer(nn.Module):
                     nhead=nhead,
                     attention_type=attention_type,
                     ffn_dim_expansion=ffn_dim_expansion,
-                    with_shift=True
-                    if attention_type == "swin" and i % 2 == 1
-                    else False,
+                    with_shift=attention_type == "swin" and i % 2 == 1,
                 )
                 for i in range(num_layers)
             ]
@@ -793,14 +780,12 @@ class FeatureFlowAttention(nn.Module):
 
         prob = torch.softmax(scores, dim=-1)
 
-        out = (
+        return (
             torch.matmul(prob, flow_window)
             .view(b, h, w, 2)
             .permute(0, 3, 1, 2)
             .contiguous()
-        )  # [B, 2, H, W]
-
-        return out
+        )
 
 
 def global_correlation_softmax(
@@ -941,9 +926,7 @@ def generate_window_grid(h_min, h_max, w_min, w_max, len_h, len_w, device=None):
             torch.linspace(h_min, h_max, len_h, device=device),
         ],
     )
-    grid = torch.stack((x, y), -1).transpose(0, 1).float()  # [H, W, 2]
-
-    return grid
+    return torch.stack((x, y), -1).transpose(0, 1).float()
 
 
 def normalize_coords(coords, h, w):
@@ -1052,8 +1035,7 @@ class PositionEmbeddingSine(nn.Module):
         pos_y = torch.stack(
             (pos_y[:, :, :, 0::2].sin(), pos_y[:, :, :, 1::2].cos()), dim=4
         ).flatten(3)
-        pos = torch.cat((pos_y, pos_x), dim=3).permute(0, 3, 1, 2)
-        return pos
+        return torch.cat((pos_y, pos_x), dim=3).permute(0, 3, 1, 2)
 
 
 def split_feature(
@@ -1101,23 +1083,21 @@ def merge_splits(
         new_b = b // num_splits // num_splits
 
         splits = splits.view(new_b, num_splits, num_splits, h, w, c)
-        merge = (
+        return (
             splits.permute(0, 1, 3, 2, 4, 5)
             .contiguous()
             .view(new_b, num_splits * h, num_splits * w, c)
-        )  # [B, H, W, C]
+        )
     else:  # [B*K*K, C, H/K, W/K]
         b, c, h, w = splits.size()
         new_b = b // num_splits // num_splits
 
         splits = splits.view(new_b, num_splits, num_splits, c, h, w)
-        merge = (
+        return (
             splits.permute(0, 3, 1, 4, 2, 5)
             .contiguous()
             .view(new_b, c, num_splits * h, num_splits * w)
-        )  # [B, C, H, W]
-
-    return merge
+        )
 
 
 def normalize_img(img0, img1):
@@ -1682,9 +1662,7 @@ class GridNet(nn.Module):
         residual_05 = self.residual_model_05(X04) + X04  # 281 ~ 284,AddBackward1286
         X05 = upsample_05 + residual_05  # AddBackward1287
 
-        X_tail = self.residual_model_tail(X05)  # 288 ~ 291
-
-        return X_tail
+        return self.residual_model_tail(X05)
 # end
 
 

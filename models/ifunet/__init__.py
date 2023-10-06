@@ -11,7 +11,7 @@ CKPT_NAMES = ["IFUNet.pth"]
 
 class IFUnet_VFI:
     @classmethod
-    def INPUT_TYPES(s):
+    def INPUT_TYPES(cls):
         return {
             "required": {
                 "ckpt_name": (CKPT_NAMES, ),

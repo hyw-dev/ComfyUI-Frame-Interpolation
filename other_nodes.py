@@ -39,7 +39,7 @@ def common_ksampler(model, seed, steps, cfg, sampler_name, scheduler, positive, 
 
 class Gradually_More_Denoise_KSampler:
     @classmethod
-    def INPUT_TYPES(s):
+    def INPUT_TYPES(cls):
         return {"required":
                     {"model": ("MODEL",),
                     "positive": ("CONDITIONING", ),
@@ -51,7 +51,7 @@ class Gradually_More_Denoise_KSampler:
                     "cfg": ("FLOAT", {"default": 8.0, "min": 0.0, "max": 100.0}),
                     "sampler_name": (comfy.samplers.KSampler.SAMPLERS, ),
                     "scheduler": (comfy.samplers.KSampler.SCHEDULERS, ),
-                    
+
                     "start_denoise": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 1.0, "step": 0.01}),
                     "denoise_increment": ("FLOAT", {"default": 0.1, "min": 0.0, "max": 1.0, "step": 0.1}),
                     "denoise_increment_steps": ("INT", {"default": 20, "min": 1, "max": 10000})

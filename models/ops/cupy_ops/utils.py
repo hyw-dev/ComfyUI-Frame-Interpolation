@@ -58,11 +58,11 @@ def cuda_kernel(strFunction: str, strKernel: str, objVariables: typing.Dict):
             strKey += str(objValue.shape)
             strKey += str(objValue.stride())
 
-        elif True:
+        else:
             print(strVariable, type(objValue))
             assert False
 
-        # end
+            # end
     # end
 
     strKey += objCudacache["device"]
@@ -108,11 +108,11 @@ def cuda_kernel(strFunction: str, strKernel: str, objVariables: typing.Dict):
                 print(strVariable, objValue.dtype)
                 assert False
 
-            elif True:
+            else:
                 print(strVariable, type(objValue))
                 assert False
 
-            # end
+                    # end
         # end
 
         while True:
@@ -186,21 +186,22 @@ def cuda_kernel(strFunction: str, strKernel: str, objVariables: typing.Dict):
             strTensor = strArgs[0]
             intStrides = objVariables[strTensor].stride()
 
-            strIndex = []
-
-            for intArg in range(intArgs):
-                strIndex.append(
-                    "(("
-                    + strArgs[intArg + 1].replace("{", "(").replace("}", ")").strip()
-                    + ")*"
-                    + str(intStrides[intArg])
-                    + ")"
-                )
+            strIndex = [
+                "(("
+                + strArgs[intArg + 1]
+                .replace("{", "(")
+                .replace("}", ")")
+                .strip()
+                + ")*"
+                + str(intStrides[intArg])
+                + ")"
+                for intArg in range(intArgs)
+            ]
             # end
 
             strKernel = strKernel.replace(
-                "VALUE_" + str(intArgs) + "(" + strKernel[intStart:intStop] + ")",
-                strTensor + "[" + str.join("+", strIndex) + "]",
+                f"VALUE_{intArgs}({strKernel[intStart:intStop]})",
+                f"{strTensor}[" + str.join("+", strIndex) + "]",
             )
         # end
 

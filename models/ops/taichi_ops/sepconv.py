@@ -5,8 +5,7 @@ from functools import reduce
 @ti.kernel
 def sepconv_out(tenIn: ti.types.ndarray(), tenVer: ti.types.ndarray(), tenHor: ti.types.ndarray(), tenOut: ti.types.ndarray()):
     N, C, H, W = tenIn.shape
-    intIndex = 0
-    for i, ch, y, x in ti.ndrange(N, C, H, W):
+    for intIndex, (i, ch, y, x) in enumerate(ti.ndrange(N, C, H, W)):
         fltOut, fltKahanc, fltKahany, fltKahant = 0.0, 0.0, 0.0, 0.0
         for intFy, intFx in ti.ndrange(tenVer.shape[1], tenHor.shape[1]):
             fltKahany = tenIn[i, ch, y + intFy, x + intFx] * tenVer[i, intFy, y, x] * tenHor[i, intFx, y, x]
@@ -15,7 +14,6 @@ def sepconv_out(tenIn: ti.types.ndarray(), tenVer: ti.types.ndarray(), tenHor: t
             fltKahanc = (fltKahant - fltOut) - fltKahany
             fltOut = fltKahant
         tenOut[intIndex] = fltOut
-        intIndex += 1
 
 
 def worker_interface(op_name, tensors):

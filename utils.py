@@ -35,7 +35,7 @@ class InterpolationStateList():
 
 class MakeInterpolationStateList:
     @classmethod
-    def INPUT_TYPES(s):
+    def INPUT_TYPES(cls):
         return {
             "required": {
                 "frame_indices": ("STRING", {"multiline": True, "default": "1,2,3"}),

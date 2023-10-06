@@ -95,23 +95,8 @@ def batch_edt(img, block=1024):
         ans = out.permute(0, 2, 1).sqrt()
         ans = ans.type(odtype) if odtype != ans.dtype else ans
 
-    # default to scipy cpu implementation
     else:
         raise NotImplementedError()
-        """ sums = img.sum(dim=(1, 2))
-        ans = torch.tensor(
-            np.stack(
-                [
-                    scipy.ndimage.morphology.distance_transform_edt(i)
-                    if s != 0
-                    else np.ones_like(i)  # change scipy behavior for empty image
-                    * np.sqrt(diam2)
-                    for i, s in zip(1 - img, sums)
-                ]
-            ),
-            dtype=odtype,
-        ) """
-
     if expand:
         ans = ans.unsqueeze(1)
     return ans

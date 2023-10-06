@@ -41,7 +41,7 @@ class EISAI(nn.Module):
 
 class EISAI_VFI:
     @classmethod
-    def INPUT_TYPES(s):
+    def INPUT_TYPES(cls):
         return {
             "required": {
                 "ckpt_name": (["eisai"], ),

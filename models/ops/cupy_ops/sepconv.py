@@ -178,8 +178,8 @@ class sepconv_func(torch.autograd.Function):
                     },
                 )
             )(
-                grid=tuple([int((tenOut.nelement() + 512 - 1) / 512), 1, 1]),
-                block=tuple([512, 1, 1]),
+                grid=(int((tenOut.nelement() + 512 - 1) / 512), 1, 1),
+                block=(512, 1, 1),
                 args=[
                     cuda_int32(tenOut.nelement()),
                     tenIn.data_ptr(),
@@ -189,7 +189,7 @@ class sepconv_func(torch.autograd.Function):
                 ],
             )
 
-        elif tenIn.is_cuda != True:
+        else:
             assert False
 
         # end
@@ -246,8 +246,8 @@ class sepconv_func(torch.autograd.Function):
                     },
                 )
             )(
-                grid=tuple([int((tenIngrad.nelement() + 512 - 1) / 512), 1, 1]),
-                block=tuple([512, 1, 1]),
+                grid=(int((tenIngrad.nelement() + 512 - 1) / 512), 1, 1),
+                block=(512, 1, 1),
                 args=[
                     cuda_int32(tenIngrad.nelement()),
                     tenIn.data_ptr(),
@@ -277,8 +277,8 @@ class sepconv_func(torch.autograd.Function):
                     },
                 )
             )(
-                grid=tuple([int((tenVergrad.nelement() + 512 - 1) / 512), 1, 1]),
-                block=tuple([512, 1, 1]),
+                grid=(int((tenVergrad.nelement() + 512 - 1) / 512), 1, 1),
+                block=(512, 1, 1),
                 args=[
                     cuda_int32(tenVergrad.nelement()),
                     tenIn.data_ptr(),
@@ -308,8 +308,8 @@ class sepconv_func(torch.autograd.Function):
                     },
                 )
             )(
-                grid=tuple([int((tenHorgrad.nelement() + 512 - 1) / 512), 1, 1]),
-                block=tuple([512, 1, 1]),
+                grid=(int((tenHorgrad.nelement() + 512 - 1) / 512), 1, 1),
+                block=(512, 1, 1),
                 args=[
                     cuda_int32(tenHorgrad.nelement()),
                     tenIn.data_ptr(),

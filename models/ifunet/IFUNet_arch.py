@@ -168,10 +168,8 @@ class ResynNet(nn.Module):
             loss_cons = (gt - deg).abs().mean()
         else:
             loss_cons = torch.tensor([0])
-        img_list = []
         N = x.shape[1] // 3
-        for i in range(N):
-            img_list.append(x[:, i * 3 : i * 3 + 3])
+        img_list = [x[:, i * 3 : i * 3 + 3] for i in range(N)]
         warped_list = []
         merged = []
         mask_list = []
@@ -186,9 +184,7 @@ class ResynNet(nn.Module):
             mask_list.append(m * 0)
             warped_list.append(deg)
         mask = F.softmax(torch.clamp(torch.cat(mask_list, 1), -4, 4), dim=1)
-        merged = 0
-        for i in range(N):
-            merged += warped_list[i] * mask[:, i : i + 1]
+        merged = sum(warped_list[i] * mask[:, i : i + 1] for i in range(N))
         return merged, loss_cons
 
 
@@ -200,9 +196,7 @@ def make_layer(basic_block, num_basic_block, **kwarg):
     Returns:
         nn.Sequential: Stacked blocks in nn.Sequential.
     """
-    layers = []
-    for _ in range(num_basic_block):
-        layers.append(basic_block(**kwarg))
+    layers = [basic_block(**kwarg) for _ in range(num_basic_block)]
     return nn.Sequential(*layers)
 
 
@@ -455,8 +449,7 @@ class ChannelGate(nn.Module):
 def logsumexp_2d(tensor):
     tensor_flatten = tensor.view(tensor.size(0), tensor.size(1), -1)
     s, _ = torch.max(tensor_flatten, dim=2, keepdim=True)
-    outputs = s + (tensor_flatten - s).exp().sum(dim=2, keepdim=True).log()
-    return outputs
+    return s + (tensor_flatten - s).exp().sum(dim=2, keepdim=True).log()
 
 
 class ChannelPool(nn.Module):
@@ -524,10 +517,7 @@ class UNetConv(nn.Module):
         self.conv1 = conv(in_planes, out_planes, 3, 2, 1)
         self.conv2 = conv(out_planes, out_planes, 3, 1, 1)
 
-        if att:
-            self.cbam = CBAM(out_planes, 16)  # 这一步导致了通道数最低为128
-        else:
-            self.cbam = None
+        self.cbam = CBAM(out_planes, 16) if att else None
 
     def forward(self, x):
         x = self.conv1(x)
@@ -549,10 +539,7 @@ class UpConv(nn.Module):
         self.conv1 = conv(in_planes, in_planes // 2, 3, 1, 1)
         self.conv2 = conv(in_planes // 2, out_planes, 3, 1, 1)
 
-        if att:
-            self.cbam = CBAM(out_planes, 16)
-        else:
-            self.cbam = None
+        self.cbam = CBAM(out_planes, 16) if att else None
 
     def forward(self, x1, x2):
         x1 = self.deconv(x1)
@@ -642,13 +629,12 @@ class IFBlock(nn.Module):
         tmp = self.flowconv(x)
         up_mask = self.mask_conv(x)
         flow_up = self.upsample_flow(tmp, up_mask)
-        flow = (
+        return (
             F.interpolate(
                 flow_up, scale_factor=scale, mode="bilinear", align_corners=False
             )
             * scale
         )
-        return flow
 
 
 class IFUNet(nn.Module):
@@ -673,7 +659,26 @@ class IFUNet(nn.Module):
         flow = None
         block = [self.block0, self.block1, self.block2]
         for i in range(3):
-            if flow != None:
+            if flow is None:
+                x = torch.cat((img0, img1, timestep), 1)
+                if scale != 1:
+                    x = F.interpolate(
+                        x, scale_factor=scale, mode="bilinear", align_corners=False
+                    )
+                Fmap = self.fmap(x, level=i)
+                flow = block[i](Fmap, scale=1.0 / scale)
+
+                if ensemble:
+                    x = torch.cat((img1, img0, 1 - timestep), 1)
+                    if scale != 1:
+                        x = F.interpolate(
+                            x, scale_factor=scale, mode="bilinear", align_corners=False
+                        )
+                    Fmap = self.fmap(x, level=i)
+                    flow2 = block[i](Fmap, scale=1.0 / scale)
+                    flow = (flow + flow2) / 2
+
+            else:
                 x = torch.cat((img0, img1, timestep, warped_img0, warped_img1), 1)
                 flowtmp = flow
                 if scale != 1:
@@ -719,25 +724,6 @@ class IFUNet(nn.Module):
                     flow_d = block[i](Fmap, scale=1.0 / scale)
                     flow2 = flow + flow_d
                     flow = (flow + flow2) / 2
-            else:
-                x = torch.cat((img0, img1, timestep), 1)
-                if scale != 1:
-                    x = F.interpolate(
-                        x, scale_factor=scale, mode="bilinear", align_corners=False
-                    )
-                Fmap = self.fmap(x, level=i)
-                flow = block[i](Fmap, scale=1.0 / scale)
-
-                if ensemble:
-                    x = torch.cat((img1, img0, 1 - timestep), 1)
-                    if scale != 1:
-                        x = F.interpolate(
-                            x, scale_factor=scale, mode="bilinear", align_corners=False
-                        )
-                    Fmap = self.fmap(x, level=i)
-                    flow2 = block[i](Fmap, scale=1.0 / scale)
-                    flow = (flow + flow2) / 2
-
             warped_img0 = warp(img0, flow[:, :2])
             warped_img1 = warp(img1, flow[:, 2:4])
         return flow, warped_img0, warped_img1

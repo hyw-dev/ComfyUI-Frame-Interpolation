@@ -49,7 +49,7 @@ class XVFInet(nn.Module):
 		assert T % 2 == 0, "T must be an even number"
 		t_value = t_value.view(B, 1, 1, 1)
 
-		flow_l = None 
+		flow_l = None
 		feat_x = self.rec_ext_ds_module(x)
 		feat_x_list = [feat_x]
 		self.lowest_depth_level = self.args.S_trn if is_training else self.args.S_tst
@@ -58,11 +58,9 @@ class XVFInet(nn.Module):
 			feat_x_list.append(feat_x)
 
 		if is_training:
-			out_l_list = []
-			flow_refine_l_list = []
 			out_l, flow_l, flow_refine_l = self.vfinet(x, feat_x_list[self.args.S_trn], flow_l, t_value, level=self.args.S_trn, is_training=True)
-			out_l_list.append(out_l)
-			flow_refine_l_list.append(flow_refine_l)
+			out_l_list = [out_l]
+			flow_refine_l_list = [flow_refine_l]
 			for level in range(self.args.S_trn-1, 0, -1): ## self.args.S_trn, self.args.S_trn-1, ..., 1. level 0 is not included
 				out_l, flow_l = self.vfinet(x, feat_x_list[level], flow_l, t_value, level=level, is_training=True)
 				out_l_list.append(out_l)
@@ -74,8 +72,9 @@ class XVFInet(nn.Module):
 		else: # Testing
 			for level in range(self.args.S_tst, 0, -1): ## self.args.S_tst, self.args.S_tst-1, ..., 1. level 0 is not included
 				flow_l = self.vfinet(x, feat_x_list[level], flow_l, t_value, level=level, is_training=False)
-			out_l = self.vfinet(x, feat_x_list[0], flow_l, t_value, level=0, is_training=False)
-			return out_l
+			return self.vfinet(
+				x, feat_x_list[0], flow_l, t_value, level=0, is_training=False
+			)
 
 
 class VFInet(nn.Module):
@@ -150,9 +149,7 @@ class VFInet(nn.Module):
 		x_l = x.permute(0,2,1,3,4)
 		x_l = x_l.contiguous().view(B * T, C, H, W)
 
-		if level == 0:
-			pass
-		else:
+		if level != 0:
 			x_l = F.interpolate(x_l, scale_factor=(1.0 / l, 1.0 / l), mode='bicubic', align_corners=False)
 		'''
 		Down pixel-shuffle
@@ -176,22 +173,22 @@ class VFInet(nn.Module):
 			warped_feat0_l = self.bwarp(feat0_l, up_flow_l_prev[:,2:,:,:])
 			flow_l_tmp = self.conv_flow2(torch.cat([self.conv_flow1(torch.cat([feat0_l, warped_feat1_l],dim=1)), self.conv_flow1(torch.cat([feat1_l, warped_feat0_l],dim=1)), up_flow_l_prev],dim=1))
 			flow_l = flow_l_tmp[:,:4,:,:] + up_flow_l_prev
-		
+
 		if not is_training and level!=0: 
 			return flow_l 
-		
+
 		flow_01_l = flow_l[:,:2,:,:]
 		flow_10_l = flow_l[:,2:,:,:]
 		z_01_l = torch.sigmoid(flow_l_tmp[:,4:5,:,:])
 		z_10_l = torch.sigmoid(flow_l_tmp[:,5:6,:,:])
-		
+
 		## Complementary Flow Reversal (CFR)
 		flow_forward, norm0_l = self.z_fwarp(flow_01_l, t_value * flow_01_l, z_01_l)  ## Actually, F (t) -> (t+1). Translation only. Not normalized yet
 		flow_backward, norm1_l = self.z_fwarp(flow_10_l, (1-t_value) * flow_10_l, z_10_l)  ## Actually, F (1-t) -> (-t). Translation only. Not normalized yet
-		
+
 		flow_t0_l = -(1-t_value) * ((t_value)*flow_forward) + (t_value) * ((t_value)*flow_backward) # The numerator of Eq.(1) in the paper.
 		flow_t1_l = (1-t_value) * ((1-t_value)*flow_forward) - (t_value) * ((1-t_value)*flow_backward) # The numerator of Eq.(2) in the paper.
-		
+
 		norm_l = (1-t_value)*norm0_l + t_value*norm1_l
 		mask_ = (norm_l.detach() > 0).type(norm_l.type())
 		flow_t0_l = (1-mask_) * flow_t0_l + mask_ * (flow_t0_l.clone() / (norm_l.clone() + (1-mask_))) # Divide the numerator with denominator in Eq.(1)
@@ -217,11 +214,11 @@ class VFInet(nn.Module):
 		## Image warping and blending
 		warped_img0_l = self.bwarp(x_l[:,:,0,:,:], flow_t0_l)
 		warped_img1_l = self.bwarp(x_l[:,:,1,:,:], flow_t1_l)
-		
+
 		refine_out = self.refine_unet(torch.cat([F.pixel_shuffle(torch.cat([feat0_l, feat1_l, warped0_l, warped1_l],dim=1), self.scale), x_l[:,:,0,:,:], x_l[:,:,1,:,:], warped_img0_l, warped_img1_l, flow_t0_l, flow_t1_l],dim=1))
 		occ_0_l = torch.sigmoid(refine_out[:, 0:1, :, :])
 		occ_1_l = 1-occ_0_l
-		
+
 		out_l = (1-t_value)*occ_0_l*warped_img0_l + t_value*occ_1_l*warped_img1_l
 		out_l = out_l / ( (1-t_value)*occ_0_l + t_value*occ_1_l ) + refine_out[:, 1:4, :, :]
 
@@ -492,10 +489,7 @@ class RResBlock2D_3D(nn.Module):
 		'''
 		out = self.resblock1(x)
 		out = self.resblock2(out)
-		if self.T_reduce_flag:
-			return self.reduceT_conv(out + x)
-		else:
-			return out + x
+		return self.reduceT_conv(out + x) if self.T_reduce_flag else out + x
 
 def weights_init(m):
     classname = m.__class__.__name__

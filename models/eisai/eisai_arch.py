@@ -65,17 +65,17 @@ def pixel_ij(x, rounding=True):
         x = x.tolist()
     return tuple(
         pixel_rounder(i, rounding)
-        for i in (x if isinstance(x, tuple) or isinstance(x, list) else (x, x))
+        for i in (x if isinstance(x, (tuple, list)) else (x, x))
     )
 
 
 def rescale_dry(x, factor):
-    h, w = x[-2:] if isinstance(x, tuple) or isinstance(x, list) else I(x).size
+    h, w = x[-2:] if isinstance(x, (tuple, list)) else I(x).size
     return (h * factor, w * factor)
 
 
 def pixel_rounder(n, mode):
-    if mode == True or mode == "round":
+    if mode in [True, "round"]:
         return round(n)
     elif mode == "ceil":
         return math.ceil(n)
@@ -86,7 +86,7 @@ def pixel_rounder(n, mode):
 
 
 def diam(x):
-    if isinstance(x, tuple) or isinstance(x, list):
+    if isinstance(x, (tuple, list)):
         h, w = x[-2:]
     elif isinstance(x, I):
         h, w = x.size
@@ -189,7 +189,7 @@ class CorrBlock:
         corr = corr.reshape(batch * h1 * w1, dim, h2, w2)
 
         self.corr_pyramid.append(corr)
-        for i in range(self.num_levels - 1):
+        for _ in range(self.num_levels - 1):
             corr = F.avg_pool2d(corr, 2, stride=2)
             self.corr_pyramid.append(corr)
 
@@ -393,25 +393,25 @@ class ResidualBlock(nn.Module):
         if norm_fn == "group":
             self.norm1 = nn.GroupNorm(num_groups=num_groups, num_channels=planes)
             self.norm2 = nn.GroupNorm(num_groups=num_groups, num_channels=planes)
-            if not stride == 1:
+            if stride != 1:
                 self.norm3 = nn.GroupNorm(num_groups=num_groups, num_channels=planes)
 
         elif norm_fn == "batch":
             self.norm1 = nn.BatchNorm2d(planes)
             self.norm2 = nn.BatchNorm2d(planes)
-            if not stride == 1:
+            if stride != 1:
                 self.norm3 = nn.BatchNorm2d(planes)
 
         elif norm_fn == "instance":
             self.norm1 = nn.InstanceNorm2d(planes)
             self.norm2 = nn.InstanceNorm2d(planes)
-            if not stride == 1:
+            if stride != 1:
                 self.norm3 = nn.InstanceNorm2d(planes)
 
         elif norm_fn == "none":
             self.norm1 = nn.Sequential()
             self.norm2 = nn.Sequential()
-            if not stride == 1:
+            if stride != 1:
                 self.norm3 = nn.Sequential()
 
         if stride == 1:
@@ -450,28 +450,28 @@ class BottleneckBlock(nn.Module):
             self.norm1 = nn.GroupNorm(num_groups=num_groups, num_channels=planes // 4)
             self.norm2 = nn.GroupNorm(num_groups=num_groups, num_channels=planes // 4)
             self.norm3 = nn.GroupNorm(num_groups=num_groups, num_channels=planes)
-            if not stride == 1:
+            if stride != 1:
                 self.norm4 = nn.GroupNorm(num_groups=num_groups, num_channels=planes)
 
         elif norm_fn == "batch":
             self.norm1 = nn.BatchNorm2d(planes // 4)
             self.norm2 = nn.BatchNorm2d(planes // 4)
             self.norm3 = nn.BatchNorm2d(planes)
-            if not stride == 1:
+            if stride != 1:
                 self.norm4 = nn.BatchNorm2d(planes)
 
         elif norm_fn == "instance":
             self.norm1 = nn.InstanceNorm2d(planes // 4)
             self.norm2 = nn.InstanceNorm2d(planes // 4)
             self.norm3 = nn.InstanceNorm2d(planes)
-            if not stride == 1:
+            if stride != 1:
                 self.norm4 = nn.InstanceNorm2d(planes)
 
         elif norm_fn == "none":
             self.norm1 = nn.Sequential()
             self.norm2 = nn.Sequential()
             self.norm3 = nn.Sequential()
-            if not stride == 1:
+            if stride != 1:
                 self.norm4 = nn.Sequential()
 
         if stride == 1:
@@ -545,7 +545,7 @@ class BasicEncoder(nn.Module):
 
     def forward(self, x):
         # if input is list, combine batch dimension
-        is_list = isinstance(x, tuple) or isinstance(x, list)
+        is_list = isinstance(x, (tuple, list))
         if is_list:
             batch_dim = x[0].shape[0]
             x = torch.cat(x, dim=0)
@@ -620,7 +620,7 @@ class BasicEncoder1(nn.Module):
 
     def forward(self, x):
         # if input is list, combine batch dimension
-        is_list = isinstance(x, tuple) or isinstance(x, list)
+        is_list = isinstance(x, (tuple, list))
         if is_list:
             batch_dim = x[0].shape[0]
             x = torch.cat(x, dim=0)
@@ -694,7 +694,7 @@ class SmallEncoder(nn.Module):
 
     def forward(self, x):
         # if input is list, combine batch dimension
-        is_list = isinstance(x, tuple) or isinstance(x, list)
+        is_list = isinstance(x, (tuple, list))
         if is_list:
             batch_dim = x[0].shape[0]
             x = torch.cat(x, dim=0)
@@ -745,10 +745,7 @@ def backwarp(img, flow):
     y = 2 * (y / (H - 1) - 0.5)
     # stacking X and Y
     grid = torch.stack((x, y), dim=3)
-    # Sample pixels using bilinear interpolation.
-    imgOut = torch.nn.functional.grid_sample(img, grid, align_corners=True)
-
-    return imgOut
+    return torch.nn.functional.grid_sample(img, grid, align_corners=True)
 
 
 class ErrorAttention(nn.Module):
@@ -831,9 +828,9 @@ class RFR(nn.Module):
                 flow_init_resize[:, 1:].clone() * (H8 // 8 * 1.0) / flow_init.size()[2]
             )
 
-            if not hasattr(self.args, "not_use_rfr_mask") or (
-                hasattr(self.args, "not_use_rfr_mask")
-                and (not self.args.not_use_rfr_mask)
+            if (
+                not hasattr(self.args, "not_use_rfr_mask")
+                or not self.args.not_use_rfr_mask
             ):
                 im18 = F.interpolate(image1, size=(H8 // 8, W8 // 8), mode="bilinear")
                 im28 = F.interpolate(image2, size=(H8 // 8, W8 // 8), mode="bilinear")
@@ -874,10 +871,7 @@ class RFR(nn.Module):
                 f12s[ii] = F.interpolate(f12s[ii], size=(H, W), mode="bilinear")
                 f12s[ii][:, :1] = f12s[ii][:, :1].clone() / (1.0 * W8) * W
                 f12s[ii][:, 1:] = f12s[ii][:, 1:].clone() / (1.0 * H8) * H
-            if self.training:
-                return f12s
-            else:
-                return [f12s[-1]], f12_init
+            return f12s if self.training else ([f12s[-1]], f12_init)
         else:
             f12[:, :1] = f12[:, :1].clone() / (1.0 * W8) * W
             f12[:, 1:] = f12[:, 1:].clone() / (1.0 * H8) * H
@@ -1220,7 +1214,7 @@ def cv2flow(a, b, method="lucaskanade", back=False):
 
 def flownet2(img_a, img_b, mode="shm", back=False):
     # package
-    url = f"http://localhost:8109/get-flow"
+    url = "http://localhost:8109/get-flow"
     if mode == "shm":
         t = time.time()
         fn_a = img_a.save(mkfile(f"/dev/shm/_flownet2/{t}/img_a.png"))
@@ -1267,10 +1261,10 @@ class Gridnet(nn.Module):
         self.total_dropout_p = p = total_dropout_p
         self.depth = depth
         self.encoders = nn.ModuleList(
-            [GridnetEncoder(ch0, ch1, ch2) for i in range(self.depth)]
+            [GridnetEncoder(ch0, ch1, ch2) for _ in range(self.depth)]
         )
         self.decoders = nn.ModuleList(
-            [GridnetDecoder(ch0, ch1, ch2) for i in range(self.depth)]
+            [GridnetDecoder(ch0, ch1, ch2) for _ in range(self.depth)]
         )
         self.total_dropout = GridnetTotalDropout(p)
         return
@@ -1279,7 +1273,7 @@ class Gridnet(nn.Module):
         for e, enc in enumerate(self.encoders):
             t = [self.total_dropout(i) for i in t] if e != 0 else x
             t = enc(t)
-        for d, dec in enumerate(self.decoders):
+        for dec in self.decoders:
             t = [self.total_dropout(i) for i in t]
             t = dec(t)
         return t
@@ -1419,20 +1413,17 @@ class GridnetTotalDropout(nn.Module):
 
     def get_drop(self, x):
         d = torch.rand(len(x))[:, None, None, None] < self.p
-        d = (1 - d.float()).to(x.device) * self.weight
-        return d
+        return (1 - d.float()).to(x.device) * self.weight
 
     def forward(self, x, force_drop=None):
-        if force_drop is True:
-            ans = x * self.get_drop(x)
-        elif force_drop is False:
-            ans = x
-        else:
-            if self.training:
-                ans = x * self.get_drop(x)
-            else:
-                ans = x
-        return ans
+        return (
+            x * self.get_drop(x)
+            if force_drop is not True
+            and force_drop is not False
+            and self.training
+            or force_drop is True
+            else x
+        )
 
 
 class Interpolator(nn.Module):
@@ -1578,8 +1569,7 @@ def batch_dog(img, t=1.0, sigma=1.0, k=1.6, epsilon=0.01, kernel_factor=4, clip=
 def batch_chamfer_distance(gt, pred, block=1024, return_more=False):
     t = batch_chamfer_distance_t(gt, pred, block=block)
     p = batch_chamfer_distance_p(gt, pred, block=block)
-    cd = (t + p) / 2
-    return cd
+    return (t + p) / 2
 
 
 def batch_chamfer_distance_t(gt, pred, block=1024, return_more=False):
@@ -1683,10 +1673,7 @@ def read_filter(fn, cast=None, sort=True, sort_key=None):
     if cast is None:
         cast = lambda x: x
     ans = [cast(line) for line in read(fn).split("\n") if line != ""]
-    if sort:
-        return sorted(ans, key=sort_key)
-    else:
-        return ans
+    return sorted(ans, key=sort_key) if sort else ans
 
 
 ################ FILE MANAGEMENT ################
@@ -1700,7 +1687,7 @@ def mkfile(fn, parents=True, exist_ok=True):
 
 def mkdir(dn, parents=True, exist_ok=True):
     pathlib.Path(dn).mkdir(parents=parents, exist_ok=exist_ok)
-    return dn if (not dn[-1] == "/" or dn == "/") else dn[:-1]
+    return dn if dn[-1] != "/" or dn == "/" else dn[:-1]
 
 
 def fstrip(fn, return_more=False):
@@ -1862,8 +1849,7 @@ class Table:
         for i in range(totalrows):
             for j in range(totalcols):
                 x, s = t[i][j]
-                sp = s[11]
-                if sp:
+                if sp := s[11]:
                     x = eval(f'f"{{{x}{sp}}}"')
                 Table._put((str(x), s), t, (i, j), empty)
 
@@ -1878,7 +1864,7 @@ class Table:
                 # expand delim_up(^)
                 if s_own[3]:
                     u, v = i, j
-                    while 0 <= u:
+                    while u >= 0:
                         _, s = t[u][v]
                         if (i, j) != (u, v) and (s[2] and not s[10]):
                             break
@@ -1908,7 +1894,7 @@ class Table:
                 # expand delim_left(<)
                 if s_own[6]:
                     u, v = i, j
-                    while 0 <= v:
+                    while v >= 0:
                         _, s = t[u][v]
                         if (i, j) != (u, v) and (s[2] and not s[10]):
                             break
@@ -1985,44 +1971,39 @@ class Table:
         return "\n".join(["".join(r) for r in rend])
 
     # parsing
-    def _spec(s, transpose=False):
-        if ":" in s:
-            i = s.index(":")
-            sp = s[i:]
-            s = s[:i]
+    def _spec(self, transpose=False):
+        if ":" in self:
+            i = self.index(":")
+            sp = self[i:]
+            self = self[:i]
         else:
             sp = ""
-            s = s.lower()
+            self = self.lower()
         return (
-            int("r" in s),  #  0:: 0:left(l)   1:right(r)
-            int("t" in s),  #  1:: 0:bottom(b) 1:top(t)
-            int(any([i in s for i in [".", "<", ">", "^", "v"]])),  #  2:: delim_here(.)
-            int("^" in s if not transpose else "<" in s),  #  3:: delim_up(^)
-            int("v" in s if not transpose else ">" in s),  #  4:: delim_down(v)
-            int(">" in s if not transpose else "v" in s),  #  5:: delim_right(>)
-            int("<" in s if not transpose else "^" in s),  #  6:: delim_left(<)
-            int("+" in s),  #  7:: subtable(+)
-            int("-" in s if not transpose else "|" in s),  #  8:: subtable_horiz(-)
-            int("|" in s if not transpose else "-" in s),  #  9:: subtable_vert(|)
-            int("_" in s),  # 10:: fill(_); if delim, overwrite; else fit
-            sp,  # 11:: special(:) f-string for numbers
+            int("r" in self),
+            int("t" in self),
+            int(any(i in self for i in [".", "<", ">", "^", "v"])),
+            int("^" in self if not transpose else "<" in self),
+            int("v" in self if not transpose else ">" in self),
+            int(">" in self if not transpose else "v" in self),
+            int("<" in self if not transpose else "^" in self),
+            int("+" in self),
+            int("-" in self if not transpose else "|" in self),
+            int("|" in self if not transpose else "-" in self),
+            int("_" in self),
+            sp,
         )
 
-    def _put(obj, t, ij, empty):
+    def _put(self, t, ij, empty):
         i, j = ij
         while i >= len(t):
             t.append([])
         while j >= len(t[i]):
             t[i].append(empty)
-        t[i][j] = obj
+        t[i][j] = self
         return
 
-    def parse(
-        table,
-        delimiter=" ",
-        orientation="br",
-        double_colon=True,
-    ):
+    def parse(self, delimiter=" ", orientation="br", double_colon=True):
         # disabling transpose
         transpose = False
 
@@ -2031,7 +2012,7 @@ class Table:
 
         # transpose
         t = []
-        for i, row in enumerate(table):
+        for i, row in enumerate(self):
             for j, item in enumerate(row):
                 ij = (i, j) if not transpose else (j, i)
                 if type(item) == tuple and len(item) == 2 and type(item[1]) == str:
@@ -2067,7 +2048,7 @@ class Table:
         totalrows = maxrow
         t += [[]] * (totalrows - len(t))
         newt = []
-        delim = (delimiter, Table._spec("._" + orientation, transpose))
+        delim = delimiter, Table._spec(f"._{orientation}", transpose)
         for i, row in enumerate(t):
             wasd = False
             tcount = 0
@@ -2077,15 +2058,15 @@ class Table:
                 if wasd and isd:
                     Table._put(empty, newt, (i, j), empty)
                     wasd = False
-                elif wasd and not isd:
+                elif wasd:
                     Table._put(item, newt, (i, j), empty)
                     tcount += 1
                     wasd = False
-                elif not wasd and isd:
+                elif isd:
                     Table._put(item, newt, (i, j), empty)
                     tcount += 1
                     wasd = True
-                elif not wasd and not isd:
+                else:
                     Table._put(delim, newt, (i, j), empty)
                     wasd = True
         t = newt
@@ -2274,9 +2255,8 @@ class HalfWarper(nn.Module):
     def morph_open(self, x, k):
         if k == 0:
             return x
-        else:
-            with torch.no_grad():
-                return kornia.morphology.opening(x, torch.ones(k, k, device=x.device))
+        with torch.no_grad():
+            return kornia.morphology.opening(x, torch.ones(k, k, device=x.device))
 
     def forward(self, img0, img1, flow0, flow1, z0, z1, k, t=0.5, return_more=False):
         # forewarps
@@ -2365,14 +2345,13 @@ class ResnetFeatureExtractor(nn.Module):
         return
 
     def forward(self, x, force_sizes_out=False, return_more=False):
-        ans = []
         x = x[:, :3]
         x = self.resize(x)
         x = self.resnet_preprocess(x)
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
-        ans.append(x)  # conv1
+        ans = [x]
         x = self.maxpool(x)
         x = self.layer1(x)
         ans.append(x)  # layer1

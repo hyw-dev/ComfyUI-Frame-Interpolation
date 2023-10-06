@@ -152,21 +152,19 @@ class costvol_func(torch.autograd.Function):
                 },
             )
         )(
-            grid=tuple(
-                [
-                    int(
-                        (
-                            (tenOut.shape[0] * tenOut.shape[2] * tenOut.shape[3])
-                            + 512
-                            - 1
-                        )
-                        / 512
-                    ),
-                    1,
-                    1,
-                ]
+            grid=(
+                int(
+                    (
+                        (tenOut.shape[0] * tenOut.shape[2] * tenOut.shape[3])
+                        + 512
+                        - 1
+                    )
+                    / 512
+                ),
+                1,
+                1,
             ),
-            block=tuple([512, 1, 1]),
+            block=(512, 1, 1),
             args=[
                 cuda_int32(tenOut.shape[0] * tenOut.shape[2] * tenOut.shape[3]),
                 tenOne.data_ptr(),
@@ -222,28 +220,28 @@ class costvol_func(torch.autograd.Function):
                     },
                 )
             )(
-                grid=tuple(
-                    [
-                        int(
+                grid=(
+                    int(
+                        (
                             (
-                                (
-                                    tenOnegrad.shape[0]
-                                    * tenOnegrad.shape[2]
-                                    * tenOnegrad.shape[3]
-                                )
-                                + 512
-                                - 1
+                                tenOnegrad.shape[0]
+                                * tenOnegrad.shape[2]
+                                * tenOnegrad.shape[3]
                             )
-                            / 512
-                        ),
-                        1,
-                        1,
-                    ]
+                            + 512
+                            - 1
+                        )
+                        / 512
+                    ),
+                    1,
+                    1,
                 ),
-                block=tuple([512, 1, 1]),
+                block=(512, 1, 1),
                 args=[
                     cuda_int32(
-                        tenOnegrad.shape[0] * tenOnegrad.shape[2] * tenOnegrad.shape[3]
+                        tenOnegrad.shape[0]
+                        * tenOnegrad.shape[2]
+                        * tenOnegrad.shape[3]
                     ),
                     tenOne.data_ptr(),
                     tenTwo.data_ptr(),
@@ -272,28 +270,28 @@ class costvol_func(torch.autograd.Function):
                     },
                 )
             )(
-                grid=tuple(
-                    [
-                        int(
+                grid=(
+                    int(
+                        (
                             (
-                                (
-                                    tenTwograd.shape[0]
-                                    * tenTwograd.shape[2]
-                                    * tenTwograd.shape[3]
-                                )
-                                + 512
-                                - 1
+                                tenTwograd.shape[0]
+                                * tenTwograd.shape[2]
+                                * tenTwograd.shape[3]
                             )
-                            / 512
-                        ),
-                        1,
-                        1,
-                    ]
+                            + 512
+                            - 1
+                        )
+                        / 512
+                    ),
+                    1,
+                    1,
                 ),
-                block=tuple([512, 1, 1]),
+                block=(512, 1, 1),
                 args=[
                     cuda_int32(
-                        tenTwograd.shape[0] * tenTwograd.shape[2] * tenTwograd.shape[3]
+                        tenTwograd.shape[0]
+                        * tenTwograd.shape[2]
+                        * tenTwograd.shape[3]
                     ),
                     tenOne.data_ptr(),
                     tenTwo.data_ptr(),
